@@ -17,13 +17,9 @@
     background-color: #256d7b;
     border-radius: 10px;
     border: 3px transparent;
-    transition: width 0.3s; /* Agregamos una transición suave al cambio de tamaño */
-  }
-  
-  *::-webkit-scrollbar-thumb:hover {
-    width: 8px;
   }
   
   *::-webkit-scrollbar-track {
     background: transparent;
   }
+  

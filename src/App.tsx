@@ -1,66 +1,99 @@
-import {FormEvent, useEffect, useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
+import {Toaster, toast} from "sonner";
+import {useForm} from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
 
 import {useLoginStore} from "./store/login-store";
+import {supabase} from "./supabase/supabase";
+import {TaskValues, taskSchema} from "./schemas/task-schema";
 
 interface Tasks {
-    id: string;
-    text: string;
+    id_user: string;
+    id_task: string;
+    task: string;
     completed: boolean;
 }
 
 function App() {
-    const [todos, setTodos] = useState<Tasks[]>([]);
+    const [todos, setTodos] = useState<Tasks[] | null>([]);
 
     const loginGoogle = useLoginStore((state) => state.loginGoogle);
     const session = useLoginStore((state) => state.session);
     const checkUser = useLoginStore((state) => state.checkUser);
     const logout = useLoginStore((state) => state.logout);
 
-    const incompleteCount = todos.filter((todo) => !todo.completed).length;
+    const methods = useForm<TaskValues>({
+        resolver: zodResolver(taskSchema),
+        defaultValues: {
+            task: "",
+        },
+    });
+
+    const incompleteCount = todos?.filter((todo) => !todo.completed).length;
 
     const messagesEndRef = useRef<HTMLUListElement>(null);
 
-    const addTodo = (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        if (!e.target) return;
+    const addTodo = async (values: TaskValues) => {
+        try {
+            const currentUser = await supabase.auth.getUser();
 
-        const inputElement = e.currentTarget.elements[0] as HTMLInputElement;
-        const newTaskText = inputElement.value.trim();
+            await supabase.from("tasks").insert({
+                task: values.task.trim(),
+                id_user: currentUser.data.user?.id,
+            });
+            toast.success("Task added successfully");
+        } catch (error) {
+            toast.error("An error ocurred while creating the task");
+        }
+        await getTasks();
+        methods.reset();
+    };
 
-        if (newTaskText === "") {
-            // La tarea está vacía, se podría mostrar una alerta
+    const getTasks = async () => {
+        const currentUser = await supabase.auth.getUser();
+        const {data} = await supabase.from("tasks").select().eq("id_user", currentUser.data.user?.id);
+
+        setTodos(data);
+    };
+
+    const deleteTask = async (id: string) => {
+        const {error} = await supabase.from("tasks").delete().eq("id_task", id);
+
+        if (error) {
+            toast.error("An error ocurred while deleting a task");
+        } else {
+            await getTasks();
+            toast.success("The task was successfully deleted");
+        }
+    };
+
+    const toggleCompleted = async (id: string, completed: boolean) => {
+        await supabase.from("tasks").update({completed: !completed}).eq("id_task", id);
+        await getTasks();
+    };
+
+    const clearCompleted = async () => {
+        if (!todos) return;
+        const currentTodo = todos.filter((todo) => todo.completed).map((todo) => todo.id_task);
+
+        if (currentTodo.length === 0) {
+            toast.error("Don't have completed tasks");
+
             return;
         }
+        const {error} = await supabase.from("tasks").delete().in("id_task", currentTodo);
 
-        setTodos([
-            ...todos,
-            {
-                id: crypto.randomUUID(),
-                text: newTaskText,
-                completed: false,
-            },
-        ]);
-
-        e.currentTarget.reset();
+        if (error) {
+            toast.error("An error ocurred while clear completed tasks");
+        } else {
+            await getTasks();
+            toast.success("Completed tasks was successfully removed");
+        }
     };
 
-    const toggleCompleted = (id: string) => {
-        const currentTodo = todos.map((todo) => (todo.id === id ? {...todo, completed: !todo.completed} : todo));
-
-        setTodos(currentTodo);
-    };
-
-    const deleteTask = (id: string) => {
-        const currentTodo = todos.filter((todo) => todo.id !== id);
-
-        setTodos(currentTodo);
-    };
-
-    const clearCompleted = () => {
-        const currentTodo = todos.filter((todo) => !todo.completed);
-
-        setTodos(currentTodo);
-    };
+    useEffect(() => {
+        getTasks();
+    }, []);
 
     useEffect(() => {
         if (messagesEndRef.current) {
@@ -72,85 +105,116 @@ function App() {
         checkUser();
     }, [checkUser]);
 
+    useEffect(() => {
+        const pendingTodo = todos?.filter((todo) => !todo.completed);
+
+        document.title = `(${pendingTodo?.length}) To Do`;
+    }, [todos]);
+
     return (
-        <div className="flex flex-col items-center justify-between max-w-screen h-screen gap-2 bg-[#fefdfc]">
-            <span />
-            <div className="flex flex-col items-center gap-2 py-4 -mt-3">
-                {session ? (
-                    <button className="hover:bg-[#f5f5dc] px-4 rounded-lg" onClick={logout}>
-                        Logout
-                    </button>
-                ) : (
-                    <button className="hover:bg-[#f5f5dc] px-4 rounded-lg" onClick={loginGoogle}>
-                        Login
-                    </button>
-                )}
-                {session && (
-                    <div className="flex items-center gap-2">
-                        <img
-                            alt="user avatar"
-                            className="w-10 h-10 rounded-full"
-                            src={session?.user.user_metadata.picture}
-                        />
-                        <span className="font-semibold">{session?.user.user_metadata.name}</span>
-                    </div>
-                )}
-                <section className="justify-between flex flex-col items-center min-h-[500px] bg-black/80 w-[320px] p-4 rounded-lg text-white gap-2">
-                    <form className="flex w-full" onSubmit={addTodo}>
-                        <input
-                            className="w-full px-3 py-1 text-sm text-black rounded-l-lg outline-none"
-                            placeholder="Write your task..."
-                            spellCheck="false"
-                            type="text"
-                        />
-                        <button className="px-2 text-sm font-semibold bg-[#256d7b] rounded-r-lg">Add</button>
-                    </form>
-                    <ul ref={messagesEndRef} className="scroll-smooth w-full h-full max-h-[410px] overflow-auto px-1">
-                        {todos.length > 0 ? (
-                            todos?.map((todo) => (
-                                <li key={todo.id} className="flex items-baseline justify-between h-auto">
-                                    <div className="flex items-start gap-2">
-                                        <div className="cursor-pointer" onClick={() => toggleCompleted(todo.id)}>
-                                            {todo.completed ? (
-                                                <i className="text-green-500 fa-solid fa-circle-check" />
-                                            ) : (
-                                                <i className="fa-light fa-circle" />
-                                            )}
-                                        </div>
-                                        <span
-                                            className={`${
-                                                todo.completed ? "line-through text-gray-300" : ""
-                                            } max-w-[230px] break-words leading-[1.3rem]`}
-                                        >
-                                            {todo.text}
-                                        </span>
-                                    </div>
-                                    <i
-                                        className="text-sm cursor-pointer fa-solid fa-trash-can hover:text-red-500"
-                                        onClick={() => deleteTask(todo.id)}
-                                    />
-                                </li>
-                            ))
-                        ) : (
-                            <li className="flex items-center justify-center h-full gap-2 text-sm text-gray-400">
-                                <i className="fa-solid fa-list" />
-                                Your to-do list is waiting!
-                            </li>
-                        )}
-                    </ul>
-                    <footer className="flex items-center justify-between w-full text-xs text-gray-400 bottom-2">
-                        <span>
-                            {incompleteCount} Item{incompleteCount !== 1 ? "s" : ""} Left
-                        </span>
-                        <div className="cursor-pointer hover:text-white">All Active Completed</div>
-                        <div className="cursor-pointer hover:text-white" onClick={clearCompleted}>
-                            Clear Completed
+        <>
+            <div
+                className="flex flex-col items-center justify-between max-w-screen h-screen gap-2 bg-[url('img.jpg')] bg-center bg-cover text-white"
+                style={{boxShadow: "inset 0 100vh 0 rgba(0, 0, 0, .3)"}}
+            >
+                <span />
+                <div className="flex flex-col items-center gap-2 py-4 -mt-3">
+                    {session ? (
+                        <button className="px-4 rounded-lg hover:bg-red-600" onClick={logout}>
+                            Logout
+                        </button>
+                    ) : (
+                        <button className="px-4 rounded-lg hover:bg-red-600" onClick={loginGoogle}>
+                            Login
+                        </button>
+                    )}
+                    {session && (
+                        <div className="flex items-center gap-2">
+                            <img
+                                alt="user avatar"
+                                className="w-10 h-10 rounded-full"
+                                src={session?.user.user_metadata.picture}
+                            />
+                            <span className="font-semibold">{session?.user.user_metadata.name}</span>
                         </div>
-                    </footer>
-                </section>
+                    )}
+                    <section
+                        className="justify-between flex flex-col items-center min-h-[500px] border-2 border-white/20 bg-transparent w-[350px] p-4 rounded-3xl text-white gap-2 backdrop-blur-[20px]"
+                        style={{boxShadow: "0 0 10px rgba(0, 0, 0, .2)"}}
+                    >
+                        <form className="flex w-full" onSubmit={methods.handleSubmit(addTodo)}>
+                            <input
+                                autoComplete="off"
+                                {...methods.register("task")}
+                                className={`${
+                                    methods.formState.errors.task
+                                        ? "border-red-500 placeholder:text-red-300 border-r-transparent"
+                                        : "border-white/20 placeholder:text-gray-300"
+                                } bg-transparent border-2 w-full px-3 py-1 text-sm rounded-l-3xl outline-none`}
+                                placeholder={`${
+                                    methods.formState.errors.task
+                                        ? methods.formState.errors.task.message
+                                        : "Write your task..."
+                                }`}
+                                spellCheck="false"
+                                type="text"
+                            />
+                            <button className="pl-2 pr-3 text-sm font-semibold bg-[#256d7b] rounded-r-3xl">Add</button>
+                        </form>
+                        <ul
+                            ref={messagesEndRef}
+                            className="scroll-smooth w-full h-full max-h-[410px] overflow-auto px-1"
+                        >
+                            {todos && todos.length > 0 ? (
+                                todos?.map((todo) => (
+                                    <li key={todo.id_task} className="flex items-baseline justify-between h-auto">
+                                        <div className="flex items-start gap-2">
+                                            <div
+                                                className="cursor-pointer"
+                                                onClick={() => toggleCompleted(todo.id_task, todo.completed)}
+                                            >
+                                                {todo.completed ? (
+                                                    <i className="text-green-400 fa-solid fa-circle-check" />
+                                                ) : (
+                                                    <i className="fa-light fa-circle" />
+                                                )}
+                                            </div>
+                                            <span
+                                                className={`${
+                                                    todo.completed ? "line-through text-gray-300" : ""
+                                                } max-w-[230px] break-words leading-[1.3rem]`}
+                                            >
+                                                {todo.task}
+                                            </span>
+                                        </div>
+                                        <i
+                                            className="text-sm cursor-pointer fa-solid fa-trash-can hover:text-red-500"
+                                            onClick={() => deleteTask(todo.id_task)}
+                                        />
+                                    </li>
+                                ))
+                            ) : (
+                                <li className="flex items-center justify-center h-full gap-2 text-sm text-gray-400">
+                                    <i className="fa-solid fa-list" />
+                                    Your to-do list is waiting!
+                                </li>
+                            )}
+                        </ul>
+                        <footer className="flex items-center justify-between w-full text-xs text-gray-300 bottom-2">
+                            <span>
+                                {incompleteCount} Item{incompleteCount !== 1 ? "s" : ""} Left
+                            </span>
+                            <div className="cursor-pointer hover:text-white">All Active Completed</div>
+                            <div className="cursor-pointer hover:text-white" onClick={clearCompleted}>
+                                Clear Completed
+                            </div>
+                        </footer>
+                    </section>
+                </div>
+                <footer className="p-2 text-sm font-light text-purple-400">Developed by Santiago Combina</footer>
             </div>
-            <footer className="p-1 text-xs font-light">Developed by Santiago Combina</footer>
-        </div>
+            <Toaster richColors />
+        </>
     );
 }
 

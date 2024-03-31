@@ -114,7 +114,7 @@ function App() {
     return (
         <>
             <div
-                className="flex flex-col items-center justify-between max-w-screen h-screen gap-2 bg-[url('img.jpg')] bg-center bg-cover text-white"
+                className="flex flex-col items-center justify-between max-w-screen h-screen gap-2 bg-[url('/img.jpg')] bg-center bg-cover text-white"
                 style={{boxShadow: "inset 0 100vh 0 rgba(0, 0, 0, .3)"}}
             >
                 <span />

@@ -108,11 +108,14 @@ function App() {
     useEffect(() => {
         const pendingTodo = todos?.filter((todo) => !todo.completed);
 
-        document.title = `(${pendingTodo?.length}) To Do`;
+        if (!pendingTodo) return;
+
+        document.title = pendingTodo.length > 0 ? `(${pendingTodo?.length}) To Do` : "To Do";
     }, [todos]);
 
     return (
         <>
+            <Toaster richColors />
             <div
                 className="flex flex-col items-center justify-between max-w-screen h-screen gap-2 bg-[url('/img.jpg')] bg-center bg-cover text-white"
                 style={{boxShadow: "inset 0 100vh 0 rgba(0, 0, 0, .3)"}}
@@ -159,7 +162,9 @@ function App() {
                                 spellCheck="false"
                                 type="text"
                             />
-                            <button className="pl-2 pr-3 text-sm font-semibold bg-[#256d7b] rounded-r-3xl">Add</button>
+                            <button className="pl-2 pr-3 text-sm font-semibold -ml-[2px] bg-teal-600 rounded-r-3xl">
+                                Add
+                            </button>
                         </form>
                         <ul
                             ref={messagesEndRef}
@@ -213,7 +218,6 @@ function App() {
                 </div>
                 <footer className="p-2 text-sm font-light text-purple-400">Developed by Santiago Combina</footer>
             </div>
-            <Toaster richColors />
         </>
     );
 }

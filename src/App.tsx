@@ -122,25 +122,28 @@ function App() {
             >
                 <span />
                 <div className="flex flex-col items-center gap-2 py-4 -mt-3">
-                    {session ? (
-                        <button className="px-4 rounded-lg hover:bg-red-600" onClick={logout}>
-                            Logout
-                        </button>
-                    ) : (
-                        <button className="px-4 rounded-lg hover:bg-red-600" onClick={loginGoogle}>
-                            Login
-                        </button>
-                    )}
-                    {session && (
-                        <div className="flex items-center gap-2">
-                            <img
-                                alt="user avatar"
-                                className="w-10 h-10 rounded-full"
-                                src={session?.user.user_metadata.picture}
+                    <div className="flex items-center justify-center w-full gap-3">
+                        {session && (
+                            <div className="flex items-center gap-2">
+                                <img
+                                    alt="user avatar"
+                                    className="w-10 h-10 rounded-full"
+                                    src={session?.user.user_metadata.picture}
+                                />
+                                <span className="font-semibold">{session?.user.user_metadata.name}</span>
+                            </div>
+                        )}
+                        {session ? (
+                            <i
+                                className="mt-1 text-gray-300 cursor-pointer fa-solid fa-right-from-bracket hover:text-red-600"
+                                onClick={logout}
                             />
-                            <span className="font-semibold">{session?.user.user_metadata.name}</span>
-                        </div>
-                    )}
+                        ) : (
+                            <button className="px-4 rounded-lg hover:bg-red-600" onClick={loginGoogle}>
+                                Login
+                            </button>
+                        )}
+                    </div>
                     <section
                         className="justify-between flex flex-col items-center min-h-[500px] border-2 border-white/20 bg-transparent w-[350px] p-4 rounded-3xl text-white gap-2 backdrop-blur-[20px]"
                         style={{boxShadow: "0 0 10px rgba(0, 0, 0, .2)"}}

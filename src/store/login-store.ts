@@ -6,6 +6,7 @@ import {supabase} from "@/supabase/supabase";
 interface LoginStore {
     session: Session | null;
     isLogged: boolean;
+    loading: boolean;
     loginGoogle: () => void;
     logout: () => void;
     checkUser: () => void;
@@ -14,14 +15,26 @@ interface LoginStore {
 export const useLoginStore = create<LoginStore>()((set) => ({
     session: null,
     isLogged: false,
-    loginGoogle: async () =>
-        supabase.auth.signInWithOAuth({
+    loading: true,
+    loginGoogle: async () => {
+        await supabase.auth.signInWithOAuth({
             provider: "google",
             options: {queryParams: {prompt: "select_account"}},
-        }),
-    logout: () => {
-        supabase.auth.signOut();
-        set({isLogged: false});
+        });
+        set({
+            isLogged: true,
+            loading: false,
+        });
+    },
+    logout: async () => {
+        set({
+            loading: true,
+        });
+        await supabase.auth.signOut();
+        set({
+            isLogged: false,
+            loading: false,
+        });
     },
     checkUser: async () => {
         supabase.auth.onAuthStateChange((event, session) => {

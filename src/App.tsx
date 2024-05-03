@@ -1,7 +1,7 @@
 import {Route, Routes} from "react-router-dom";
 
 import {Layout} from "./components/layout/layout";
-import {ProtectedPage} from "./components/protected-page";
+import {ProtectedRoute} from "./components/protected-route";
 import {Login} from "./pages/login";
 import {Todo} from "./pages/todo";
 
@@ -10,7 +10,7 @@ function App() {
         <Routes>
             <Route element={<Layout />}>
                 <Route element={<Login />} path="/login" />
-                <Route element={<ProtectedPage />}>
+                <Route element={<ProtectedRoute />}>
                     <Route element={<Todo />} path="/" />
                 </Route>
             </Route>
